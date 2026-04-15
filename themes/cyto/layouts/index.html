@@ -1,0 +1,48 @@
+{{ define "main" }}
+<section class="hero">
+  <div class="hero-label">whoami</div>
+  <h1 class="hero-title">{{ .Site.Title }}</h1>
+  <p class="hero-tagline">{{ .Site.Params.tagline }}</p>
+  <p class="hero-desc">{{ .Site.Params.description }}</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="{{ "/posts/" | relURL }}">read the blog</a>
+    <a class="btn btn-secondary" href="{{ "/about/" | relURL }}">about me</a>
+  </div>
+</section>
+
+<section class="recent-posts">
+  <h2 class="section-title">
+    <span class="section-title-text">recent posts</span>
+    <span class="section-title-line"></span>
+  </h2>
+  {{ $posts := (where .Site.RegularPages "Section" "posts") }}
+  {{ range first 3 $posts }}
+  <article class="post-card">
+    <div class="post-card-meta">
+      <time class="post-date" datetime="{{ .Date.Format "2006-01-02" }}">
+        {{ .Date.Format "Jan 02, 2006" }}
+      </time>
+      {{ if .Params.tags }}
+      <div class="post-tags">
+        {{ range .Params.tags }}
+        <span class="tag">{{ . }}</span>
+        {{ end }}
+      </div>
+      {{ end }}
+    </div>
+    <h3 class="post-card-title">
+      <a href="{{ .Permalink }}">{{ .Title }}</a>
+    </h3>
+    {{ with .Summary }}
+    <p class="post-card-summary">{{ . }}</p>
+    {{ end }}
+    <a class="post-read-more" href="{{ .Permalink }}">read more →</a>
+  </article>
+  {{ end }}
+  {{ if gt (len $posts) 3 }}
+  <div class="view-all">
+    <a class="btn btn-secondary" href="{{ "/posts/" | relURL }}">all posts →</a>
+  </div>
+  {{ end }}
+</section>
+{{ end }}

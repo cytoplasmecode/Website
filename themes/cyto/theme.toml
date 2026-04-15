@@ -1,0 +1,10 @@
+name = "cyto"
+license = "MIT"
+licenselink = "https://opensource.org/licenses/MIT"
+description = "A minimal dark-mode Hugo theme"
+homepage = "https://github.com/cytoplasmecode/website"
+tags = ["minimal", "dark", "blog", "personal"]
+features = ["blog", "responsive"]
+
+[author]
+  name = "cytoplasmecode"
