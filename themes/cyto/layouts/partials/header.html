@@ -1,0 +1,14 @@
+<header class="site-header">
+  <nav class="nav">
+    <a class="nav-logo" href="{{ "/" | relURL }}">
+      <span class="logo-bracket">{</span>
+      <span class="logo-text">{{ .Site.Title }}</span>
+      <span class="logo-bracket">}</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="{{ "/" | relURL }}" {{ if .IsHome }}class="active"{{ end }}>home</a></li>
+      <li><a href="{{ "/posts/" | relURL }}" {{ if (hasPrefix .RelPermalink "/posts") }}class="active"{{ end }}>posts</a></li>
+      <li><a href="{{ "/about/" | relURL }}" {{ if (hasPrefix .RelPermalink "/about") }}class="active"{{ end }}>about</a></li>
+    </ul>
+  </nav>
+</header>
