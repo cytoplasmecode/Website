@@ -50,13 +50,13 @@ class CalendarManager(private val context: Context) {
         }
     }
 
-    suspend fun markEventDone(eventId: String, plantName: String) {
+    suspend fun markEventDone(eventId: String, plantName: String, userName: String) {
         val acc = account ?: return
         withContext(Dispatchers.IO) {
             runCatching {
                 val service = buildService(acc)
                 val event = service.events().get("primary", eventId).execute()
-                event.summary = "DONE - $plantName"
+                event.summary = "DONE by $userName - $plantName"
                 service.events().update("primary", eventId, event).execute()
             }
         }

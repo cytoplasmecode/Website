@@ -23,18 +23,25 @@ class PlantsViewModel(application: Application) : AndroidViewModel(application) 
 
     val plants: LiveData<List<Plant>> = repository.plants
 
-    fun setAccount(account: Account) = calendarManager.setAccount(account)
+    private var userName: String = "Unknown"
 
-    fun clearAccount() = calendarManager.setAccount(
-        Account("", "com.google") // clears the stored account
-    )
+    fun setAccount(account: Account, displayName: String) {
+        calendarManager.setAccount(account)
+        userName = displayName
+    }
+
+    fun clearAccount() = calendarManager.setAccount(Account("", "com.google"))
 
     fun addPlant(name: String, intervalDays: Int) {
         viewModelScope.launch { repository.addPlant(name, intervalDays) }
     }
 
     fun waterPlant(plant: Plant) {
-        viewModelScope.launch { repository.waterPlant(plant) }
+        viewModelScope.launch { repository.waterPlant(plant, userName) }
+    }
+
+    fun updatePlantInterval(plant: Plant, newIntervalDays: Int) {
+        viewModelScope.launch { repository.updateInterval(plant, newIntervalDays) }
     }
 
     fun deletePlant(plant: Plant) {

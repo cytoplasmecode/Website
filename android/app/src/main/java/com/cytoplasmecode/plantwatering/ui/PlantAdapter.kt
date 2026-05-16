@@ -16,7 +16,8 @@ import java.time.temporal.ChronoUnit
 
 class PlantAdapter(
     private val onWaterClick: (Plant) -> Unit,
-    private val onDeleteClick: (Plant) -> Unit
+    private val onEditClick: (Plant) -> Unit,
+    private val onDeleteClick: (Plant) -> Unit,
 ) : ListAdapter<Plant, PlantAdapter.ViewHolder>(DIFF) {
 
     inner class ViewHolder(private val binding: ItemPlantBinding) :
@@ -29,6 +30,7 @@ class PlantAdapter(
             val nextDate = Instant.ofEpochMilli(plant.nextWateringMillis)
                 .atZone(ZoneId.systemDefault()).toLocalDate()
             val daysUntil = ChronoUnit.DAYS.between(LocalDate.now(), nextDate)
+
             val (label, tintColor) = when {
                 daysUntil < 0 -> "⚠ Overdue ${-daysUntil}d" to Color.parseColor("#F87171")
                 daysUntil == 0L -> "● Due today" to Color.parseColor("#FB923C")
@@ -37,10 +39,14 @@ class PlantAdapter(
             binding.nextWateringText.text = label
             binding.nextWateringText.setTextColor(tintColor)
             binding.nextWateringText.background?.let {
-                DrawableCompat.setTint(DrawableCompat.wrap(it.mutate()), (tintColor and 0x00FFFFFF) or 0x22000000)
+                DrawableCompat.setTint(
+                    DrawableCompat.wrap(it.mutate()),
+                    (tintColor and 0x00FFFFFF) or 0x22000000
+                )
             }
 
             binding.waterButton.setOnClickListener { onWaterClick(plant) }
+            binding.editButton.setOnClickListener { onEditClick(plant) }
             binding.deleteButton.setOnClickListener { onDeleteClick(plant) }
         }
     }

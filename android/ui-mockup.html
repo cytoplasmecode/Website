@@ -194,6 +194,13 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 14px; cursor: pointer; color: #4a5568;
   }
+  .icon-btn {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; cursor: pointer;
+  }
 
   .status-row {
     display: flex;
@@ -440,6 +447,47 @@
 
 </div>
 
+<!-- Col 1b: Edit interval dialog -->
+<div>
+  <div class="screen-label">③b Edit interval</div>
+  <div class="phone">
+    <div class="phone-screen" style="position:relative">
+      <div class="status-bar"><span>9:41</span><span>●●● ▶</span></div>
+      <div class="toolbar">
+        <span class="toolbar-title">My Plants</span>
+        <div class="toolbar-avatar">A</div>
+      </div>
+      <div class="plant-list-body" style="filter:blur(2px) brightness(0.5);pointer-events:none">
+        <div class="plant-card">
+          <div class="card-top">
+            <div class="card-left">
+              <div class="plant-emoji">🪴</div>
+              <div><div class="plant-name">Monstera</div><div class="plant-interval">Every 7 days</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-overlay">
+        <div class="dialog">
+          <div class="dialog-handle"></div>
+          <div class="dialog-title">Edit "Monstera" 🪴</div>
+          <p style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:18px;">Only future watering events will be updated. Past calendar entries are kept as-is.</p>
+          <div class="input-group">
+            <div class="input-label">WATER EVERY (DAYS)</div>
+            <div class="input-wrap">
+              <input class="input-field" value="5" readonly />
+            </div>
+          </div>
+          <div class="dialog-actions">
+            <button class="btn-cancel">Cancel</button>
+            <button class="btn-add">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Col 2: Plant list -->
 <div class="col">
   <div>
@@ -464,7 +512,10 @@
                   <div class="plant-interval">Every 3 days</div>
                 </div>
               </div>
-              <div class="delete-btn">✕</div>
+              <div style="display:flex;gap:6px">
+                <div class="icon-btn" title="Edit interval">✏️</div>
+                <div class="delete-btn">✕</div>
+              </div>
             </div>
             <div class="status-row">
               <span class="status-pill overdue">⚠ Overdue 1 day</span>
@@ -481,7 +532,10 @@
                   <div class="plant-interval">Every 14 days</div>
                 </div>
               </div>
-              <div class="delete-btn">✕</div>
+              <div style="display:flex;gap:6px">
+                <div class="icon-btn">✏️</div>
+                <div class="delete-btn">✕</div>
+              </div>
             </div>
             <div class="status-row">
               <span class="status-pill today">● Due today</span>
@@ -500,7 +554,10 @@
                   <div class="plant-interval">Every 7 days</div>
                 </div>
               </div>
-              <div class="delete-btn">✕</div>
+              <div style="display:flex;gap:6px">
+                <div class="icon-btn">✏️</div>
+                <div class="delete-btn">✕</div>
+              </div>
             </div>
             <div class="status-row">
               <span class="status-pill ok">● In 3 days</span>
@@ -517,7 +574,10 @@
                   <div class="plant-interval">Every 10 days</div>
                 </div>
               </div>
-              <div class="delete-btn">✕</div>
+              <div style="display:flex;gap:6px">
+                <div class="icon-btn">✏️</div>
+                <div class="delete-btn">✕</div>
+              </div>
             </div>
             <div class="status-row">
               <span class="status-pill ok">● In 7 days</span>
@@ -557,12 +617,12 @@
         <div class="event-row done">
           <div class="event-dot done"></div>
           <span class="event-date">May 15</span>
-          <span class="event-name">DONE - Basil</span>
+          <span class="event-name">DONE by Alice - Basil</span>
         </div>
         <div class="event-row done">
           <div class="event-dot done"></div>
           <span class="event-date">May 16</span>
-          <span class="event-name">DONE - Cactus</span>
+          <span class="event-name">DONE by Bob - Cactus</span>
         </div>
         <div class="event-row">
           <div class="event-dot"></div>

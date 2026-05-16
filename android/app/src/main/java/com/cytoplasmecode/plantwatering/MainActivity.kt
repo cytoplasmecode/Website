@@ -22,6 +22,7 @@ import com.cytoplasmecode.plantwatering.auth.GoogleAuthManager
 import com.cytoplasmecode.plantwatering.databinding.ActivityMainBinding
 import com.cytoplasmecode.plantwatering.notifications.WateringReminderWorker
 import com.cytoplasmecode.plantwatering.ui.AddPlantDialog
+import com.cytoplasmecode.plantwatering.ui.EditIntervalDialog
 import com.cytoplasmecode.plantwatering.ui.PlantAdapter
 import com.cytoplasmecode.plantwatering.ui.PlantsViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -66,6 +67,11 @@ class MainActivity : AppCompatActivity() {
                 viewModel.waterPlant(plant)
                 Toast.makeText(this, "${plant.name} watered! Calendar updated.", Toast.LENGTH_SHORT).show()
             },
+            onEditClick = { plant ->
+                EditIntervalDialog(this, plant) { newInterval ->
+                    viewModel.updatePlantInterval(plant, newInterval)
+                }.show()
+            },
             onDeleteClick = { plant -> viewModel.deletePlant(plant) }
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
@@ -105,7 +111,8 @@ class MainActivity : AppCompatActivity() {
         binding.contentLayout.visibility = View.VISIBLE
         binding.fab.visibility = View.VISIBLE
         val account = GoogleSignIn.getLastSignedInAccount(this) ?: return
-        account.account?.let { viewModel.setAccount(it) }
+        val displayName = account.displayName ?: account.email ?: "Someone"
+        account.account?.let { viewModel.setAccount(it, displayName) }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
