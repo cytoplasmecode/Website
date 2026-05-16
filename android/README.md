@@ -11,8 +11,9 @@ An Android app that helps you remember to water your plants. Watering events are
 | **Google Sign-In** | OAuth 2.0 via Google Play Services — no separate backend |
 | **Multiple plants** | Each plant has a name and its own watering interval (in days) |
 | **Google Calendar sync** | Creates `Water <plant>` all-day events; marks them `DONE by <name> - <plant>` on watering |
+| **Calendar picker** | Choose any writable calendar — including shared ones — after sign-in or from the menu |
 | **Edit interval** | Change the frequency at any time — only future events are affected |
-| **Multi-user** | Anyone with Calendar access can water plants; the event records their name |
+| **Multi-user** | Anyone with write access to the shared calendar can water plants; the event records their name |
 | **Daily reminders** | Background WorkManager job notifies you when plants are due |
 | **Boot persistence** | Reminders are rescheduled automatically after a device restart |
 
@@ -69,8 +70,8 @@ android/
 
 | Document | Contents |
 |---|---|
-| [SETUP.md](SETUP.md) | Google Cloud setup, SHA-1 fingerprint, first run |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layers, data flow, database schema, Calendar integration |
+| [SETUP.md](SETUP.md) | Google Cloud setup, SHA-1 fingerprint, shared calendars, first run |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layers, data flow, database schema, Calendar integration, calendar selection |
 | [docs/TESTING.md](docs/TESTING.md) | Test strategy, how to run tests, coverage targets |
 
 ---

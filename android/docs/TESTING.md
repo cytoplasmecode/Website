@@ -46,6 +46,7 @@ Google Calendar API calls are **never made** during tests — `CalendarManager` 
 ```
 src/test/
 ├── calendar/
+│   ├── CalendarInfoTest.kt         # isWritable access-role logic
 │   └── EventTitlesTest.kt          # Pure-function title formatting
 ├── data/
 │   └── PlantRepositoryTest.kt      # Business logic (MockK, coroutines-test)
@@ -65,6 +66,18 @@ src/androidTest/
 
 ## What each test file covers
 
+### `CalendarInfoTest` (5 tests)
+
+Tests the `isWritable` computed property of `CalendarInfo` in isolation.
+
+| Access role | Expected |
+|---|---|
+| `"owner"` | writable |
+| `"writer"` | writable |
+| `"reader"` | not writable |
+| `"freeBusyReader"` | not writable |
+| `"unknown"` / anything else | not writable |
+
 ### `EventTitlesTest` (8 tests)
 
 Tests the two pure title-formatting functions in isolation:
@@ -75,21 +88,25 @@ Tests the two pure title-formatting functions in isolation:
 
 No mocking needed — these are pure Kotlin functions.
 
-### `PlantRepositoryTest` (13 tests)
+### `PlantRepositoryTest` (16 tests)
 
-Tests all business logic in `PlantRepository` using MockK to stub `PlantDao` and `CalendarManager`.
+Tests all business logic in `PlantRepository` using MockK to stub `PlantDao` and `CalendarManager`. All assertions cover the new `pendingEventCalendarId` field.
 
 | Scenario | Assertions |
 |---|---|
-| `addPlant` | Correct event name, correct date (today + interval), `null` lastWatered, event ID stored |
-| `waterPlant` | `markEventDone` called with correct args including `userName`; new event created; DB updated |
-| `waterPlant` with no pending event | `markEventDone` skipped, no crash |
-| `updateInterval` | Old event deleted (exactly once), new event from today, DB updated with new interval |
-| `updateInterval` with no pending event | `deleteEvent` skipped gracefully |
-| `deletePlant` | Pending event deleted, plant removed from DB |
-| `deletePlant` with no pending event | `deleteEvent` skipped gracefully |
+| `addPlant` | Correct event name, correct date, `null` lastWatered, both `pendingEventId` and `pendingEventCalendarId` stored |
+| `waterPlant` | `markEventDone` called with the plant's own `calendarId`; new event created; DB updated with new IDs |
+| `waterPlant` — null calendarId | Falls back to `"primary"` for `markEventDone` |
+| `waterPlant` — no pending event | `markEventDone` skipped, no crash |
+| `waterPlant` — user name | Correct `userName` forwarded |
+| `updateInterval` | Old event deleted from its original calendar (exactly once); new event created; DB updated |
+| `updateInterval` — null calendarId | Falls back to `"primary"` for `deleteEvent` |
+| `updateInterval` — no pending event | `deleteEvent` skipped gracefully |
+| `deletePlant` | Pending event deleted from its original calendar; plant removed from DB |
+| `deletePlant` — null calendarId | Falls back to `"primary"` |
+| `deletePlant` — no pending event | `deleteEvent` skipped gracefully |
 
-### `PlantsViewModelTest` (7 tests)
+### `PlantsViewModelTest` (10 tests)
 
 Tests ViewModel behaviour using Robolectric for the `Application` context and MockK for the repository and calendar manager.
 
@@ -98,6 +115,9 @@ Tests ViewModel behaviour using Robolectric for the `Application` context and Mo
 | `waterPlant` after `setAccount("Alice")` | Repository receives `"Alice"` |
 | `waterPlant` before `setAccount` | Repository receives `"Unknown"` |
 | Multiple `setAccount` calls | Latest name wins |
+| `setCalendarId` | Forwarded to `CalendarManager` |
+| `loadCalendars` | `calendars` LiveData updated with fetched list |
+| `loadCalendars` — empty result | `calendars` LiveData set to empty list |
 | `addPlant`, `deletePlant`, `updatePlantInterval` | Each delegates to the repository with exact arguments |
 | `setAccount` | Forwards the account to `CalendarManager.setAccount` |
 
@@ -155,3 +175,6 @@ val plants = dao.getAllPlants().getOrAwaitValue()
 | `WateringReminderWorker` | WorkManager integration tests are slow and flaky; the logic (`getDuePlants` + `notify`) is covered by `PlantDaoTest` and manual testing |
 | Full sign-in / Calendar UI flow | Requires real OAuth credentials; covered by manual QA |
 | `CalendarManager` API calls | Network-dependent; tested indirectly by verifying the correct arguments reach the mock |
+| `CalendarPickerDialog` rendering | Requires a running Activity; covered by manual QA |
+| `CalendarPreferences` | Thin SharedPreferences wrapper; correctness verified by the ViewModel and integration flow |
+| Room migration 1→2 | The `ALTER TABLE … ADD COLUMN` migration is trivial; verified by opening the app on an existing install |

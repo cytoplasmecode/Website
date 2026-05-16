@@ -2,5 +2,6 @@
 <resources>
     <string name="app_name">Plant Watering</string>
     <string name="water_now">Water Now 💧</string>
+    <string name="change_calendar">Change calendar</string>
     <string name="sign_out">Sign Out</string>
 </resources>

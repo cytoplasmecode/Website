@@ -1,66 +1,27 @@
-# Plant Watering App — Setup Guide
+# Plant Watering — Setup Guide
 
-## Prerequisites
+See [`docs/SETUP.md`](docs/SETUP.md) for the full step-by-step guide covering Google Cloud project setup, OAuth credentials, SHA-1 fingerprints, and shared calendar configuration.
 
-- Android Studio Hedgehog (2023.1.1) or later
-- A device or emulator running Android 8.0 (API 26) or higher with Google Play Services
+---
 
-## 1. Google Cloud Platform Setup
+## Quick summary
 
-### Create a project and enable the Calendar API
+1. Create a GCP project, enable **Google Calendar API**, create an Android OAuth 2.0 credential with your package name (`com.cytoplasmecode.plantwatering`) and debug SHA-1
+2. Open the `android/` folder in Android Studio and run
+3. Sign in → pick a calendar (including shared ones) → add plants
 
-1. Go to [console.cloud.google.com](https://console.cloud.google.com/)
-2. Create a new project (or select an existing one)
-3. Navigate to **APIs & Services → Library**
-4. Search for **Google Calendar API** and click **Enable**
-
-### Create OAuth credentials for Android
-
-1. Go to **APIs & Services → Credentials**
-2. Click **Create Credentials → OAuth client ID**
-3. Select **Android** as the application type
-4. Enter the package name: `com.cytoplasmecode.plantwatering`
-5. Enter your SHA-1 signing certificate fingerprint (see below)
-6. Click **Create**
-
-### Get your debug SHA-1 fingerprint
-
-```bash
-keytool -list -v \
-  -keystore ~/.android/debug.keystore \
-  -alias androiddebugkey \
-  -storepass android \
-  -keypass android
-```
-
-Copy the `SHA1:` value from the output and paste it into the GCP credentials form.
-
-## 2. Open and Build the Project
-
-1. Open Android Studio
-2. Click **File → Open** and select the `android/` folder from this repository
-3. Let Gradle sync complete (it will download all dependencies automatically)
-4. Run the app on your device or emulator
-
-## 3. First Launch
-
-1. Tap **Sign in with Google**
-2. Select your Google account
-3. Grant Calendar access when prompted
-4. Tap **+** to add your first plant (name + watering interval in days)
-
-## App Behaviour
+## App behaviour
 
 | Action | What happens |
 |---|---|
-| Add plant "Basil" with 3-day interval | Creates a "Water Basil" all-day event in Google Calendar 3 days from now |
-| Tap **Water Now 💧** | Renames the pending Calendar event to **"DONE - Basil"**, creates a new "Water Basil" event 3 days later |
-| Delete a plant | Removes the pending Calendar event and the local record |
+| Add plant "Basil", every 3 days | Creates `Water Basil` all-day event in the selected calendar |
+| Tap **Water Now 💧** | Renames the event to `DONE by Alice - Basil`; creates the next `Water Basil` event |
+| Edit interval (✏) | Deletes the pending event only; creates a new one with the new schedule |
+| Delete plant | Removes the pending calendar event and the local record |
+| **⋮ → Change calendar** | Shows the calendar picker again; new events go to the newly selected calendar |
 | Daily background check | Sends a notification for every plant that is due or overdue |
 | Device reboot | WorkManager reminder is automatically rescheduled |
 
-## Notes
+## Using a shared calendar
 
-- Calendar events are created in the signed-in user's **primary** Google Calendar.
-- The app uses an offline Room database to track plants locally so the list loads instantly.
-- Network calls (Calendar API) happen on background threads and silently retry on the next watering cycle if they fail.
+Share a Google Calendar with everyone in your household (grant **"Make changes to events"** access). Each person signs into the app with their **own** account, then picks the shared calendar in the picker. All watering events land there, and the event title records who watered each plant.

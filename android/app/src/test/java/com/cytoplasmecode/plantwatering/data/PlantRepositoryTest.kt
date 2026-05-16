@@ -35,7 +35,7 @@ class PlantRepositoryTest {
 
     @Test
     fun `addPlant creates a calendar event with the correct plant name`() = runTest {
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "evt_1"
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("evt_1", "cal_a")
         coEvery { mockDao.insert(any()) } returns 1L
 
         repository.addPlant("Basil", 3)
@@ -46,7 +46,7 @@ class PlantRepositoryTest {
     @Test
     fun `addPlant schedules the event on today plus the interval`() = runTest {
         val expectedDate = LocalDate.now().plusDays(5)
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "evt_1"
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("evt_1", "cal_a")
         coEvery { mockDao.insert(any()) } returns 1L
 
         repository.addPlant("Fern", 5)
@@ -56,7 +56,7 @@ class PlantRepositoryTest {
 
     @Test
     fun `addPlant inserts a plant with null lastWateredMillis`() = runTest {
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "evt_1"
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("evt_1", "cal_a")
         coEvery { mockDao.insert(any()) } returns 1L
 
         repository.addPlant("Cactus", 14)
@@ -65,34 +65,50 @@ class PlantRepositoryTest {
     }
 
     @Test
-    fun `addPlant stores the returned calendar event ID`() = runTest {
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "cal_id_xyz"
+    fun `addPlant stores both the event ID and calendar ID returned by CalendarManager`() = runTest {
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("evt_xyz", "shared_cal")
         coEvery { mockDao.insert(any()) } returns 1L
 
         repository.addPlant("Orchid", 10)
 
-        coVerify { mockDao.insert(match { it.pendingEventId == "cal_id_xyz" }) }
+        coVerify {
+            mockDao.insert(match {
+                it.pendingEventId == "evt_xyz" && it.pendingEventCalendarId == "shared_cal"
+            })
+        }
     }
 
     // ── waterPlant ────────────────────────────────────────────────────────────
 
     @Test
-    fun `waterPlant marks the pending event done with user name and plant name`() = runTest {
-        val plant = plant(pendingEventId = "old_evt")
-        coEvery { mockCalendar.markEventDone(any(), any(), any()) } just Runs
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "new_evt"
+    fun `waterPlant marks the pending event done in the correct calendar`() = runTest {
+        val plant = plant(pendingEventId = "old_evt", pendingEventCalendarId = "shared_cal")
+        coEvery { mockCalendar.markEventDone(any(), any(), any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "shared_cal")
         coEvery { mockDao.update(any()) } just Runs
 
         repository.waterPlant(plant, "Alice")
 
-        coVerify { mockCalendar.markEventDone("old_evt", "Basil", "Alice") }
+        coVerify { mockCalendar.markEventDone("old_evt", "shared_cal", "Basil", "Alice") }
     }
 
     @Test
-    fun `waterPlant creates the next watering event immediately`() = runTest {
-        val plant = plant(intervalDays = 3, pendingEventId = "old_evt")
-        coEvery { mockCalendar.markEventDone(any(), any(), any()) } just Runs
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "new_evt"
+    fun `waterPlant falls back to primary calendar when pendingEventCalendarId is null`() = runTest {
+        val plant = plant(pendingEventId = "old_evt", pendingEventCalendarId = null)
+        coEvery { mockCalendar.markEventDone(any(), any(), any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "primary")
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.waterPlant(plant, "Alice")
+
+        coVerify { mockCalendar.markEventDone("old_evt", "primary", "Basil", "Alice") }
+    }
+
+    @Test
+    fun `waterPlant creates the next watering event in the currently selected calendar`() = runTest {
+        val plant = plant(intervalDays = 3, pendingEventId = "old_evt", pendingEventCalendarId = "cal_a")
+        coEvery { mockCalendar.markEventDone(any(), any(), any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "cal_b")
         coEvery { mockDao.update(any()) } just Runs
 
         repository.waterPlant(plant, "Alice")
@@ -102,64 +118,76 @@ class PlantRepositoryTest {
     }
 
     @Test
-    fun `waterPlant updates the plant with new pending event ID and lastWateredMillis`() = runTest {
-        val plant = plant(pendingEventId = "old_evt")
-        coEvery { mockCalendar.markEventDone(any(), any(), any()) } just Runs
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "next_evt"
+    fun `waterPlant persists the new event ID and calendar ID from the new event`() = runTest {
+        val plant = plant(pendingEventId = "old_evt", pendingEventCalendarId = "cal_a")
+        coEvery { mockCalendar.markEventDone(any(), any(), any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("next_evt", "new_cal")
         coEvery { mockDao.update(any()) } just Runs
 
         repository.waterPlant(plant, "Alice")
 
         coVerify {
             mockDao.update(match {
-                it.pendingEventId == "next_evt" && it.lastWateredMillis != null
+                it.pendingEventId == "next_evt" && it.pendingEventCalendarId == "new_cal"
             })
         }
     }
 
     @Test
     fun `waterPlant skips markEventDone when plant has no pending event`() = runTest {
-        val plant = plant(pendingEventId = null)
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "next_evt"
+        val plant = plant(pendingEventId = null, pendingEventCalendarId = null)
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("next_evt", "cal_a")
         coEvery { mockDao.update(any()) } just Runs
 
         repository.waterPlant(plant, "Bob")
 
-        coVerify(exactly = 0) { mockCalendar.markEventDone(any(), any(), any()) }
+        coVerify(exactly = 0) { mockCalendar.markEventDone(any(), any(), any(), any()) }
     }
 
     @Test
     fun `waterPlant forwards different user names correctly`() = runTest {
-        val plant = plant(pendingEventId = "evt")
-        coEvery { mockCalendar.markEventDone(any(), any(), any()) } just Runs
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "next"
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = "cal_a")
+        coEvery { mockCalendar.markEventDone(any(), any(), any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("next", "cal_a")
         coEvery { mockDao.update(any()) } just Runs
 
         repository.waterPlant(plant, "Bob")
 
-        coVerify { mockCalendar.markEventDone(any(), any(), "Bob") }
+        coVerify { mockCalendar.markEventDone(any(), any(), any(), "Bob") }
     }
 
     // ── updateInterval ────────────────────────────────────────────────────────
 
     @Test
-    fun `updateInterval deletes only the pending future event`() = runTest {
-        val plant = plant(pendingEventId = "pending_evt")
-        coEvery { mockCalendar.deleteEvent(any()) } just Runs
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "new_evt"
+    fun `updateInterval deletes the pending event from its original calendar`() = runTest {
+        val plant = plant(pendingEventId = "pending_evt", pendingEventCalendarId = "shared_cal")
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "shared_cal")
         coEvery { mockDao.update(any()) } just Runs
 
         repository.updateInterval(plant, 7)
 
         // Exactly one delete — the pending event; past DONE events are untouched
-        coVerify(exactly = 1) { mockCalendar.deleteEvent("pending_evt") }
+        coVerify(exactly = 1) { mockCalendar.deleteEvent("pending_evt", "shared_cal") }
+    }
+
+    @Test
+    fun `updateInterval falls back to primary when pendingEventCalendarId is null`() = runTest {
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = null)
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "primary")
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.updateInterval(plant, 5)
+
+        coVerify { mockCalendar.deleteEvent("evt", "primary") }
     }
 
     @Test
     fun `updateInterval creates a new event from today plus the new interval`() = runTest {
-        val plant = plant(intervalDays = 3, pendingEventId = "old_evt")
-        coEvery { mockCalendar.deleteEvent(any()) } just Runs
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "new_evt"
+        val plant = plant(pendingEventId = "old_evt", pendingEventCalendarId = "cal_a")
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "cal_a")
         coEvery { mockDao.update(any()) } just Runs
 
         repository.updateInterval(plant, 10)
@@ -169,10 +197,10 @@ class PlantRepositoryTest {
     }
 
     @Test
-    fun `updateInterval saves the new interval and next watering date to the database`() = runTest {
-        val plant = plant(intervalDays = 3, pendingEventId = "old_evt")
-        coEvery { mockCalendar.deleteEvent(any()) } just Runs
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "new_evt"
+    fun `updateInterval saves the new interval and both event IDs to the database`() = runTest {
+        val plant = plant(pendingEventId = "old_evt", pendingEventCalendarId = "cal_a")
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "new_cal")
         coEvery { mockDao.update(any()) } just Runs
 
         repository.updateInterval(plant, 10)
@@ -180,40 +208,43 @@ class PlantRepositoryTest {
         val expectedMillis = LocalDate.now().plusDays(10).toEpochDay() * 86_400_000L
         coVerify {
             mockDao.update(match {
-                it.intervalDays == 10 && it.nextWateringMillis == expectedMillis
+                it.intervalDays == 10 &&
+                it.nextWateringMillis == expectedMillis &&
+                it.pendingEventId == "new_evt" &&
+                it.pendingEventCalendarId == "new_cal"
             })
         }
     }
 
     @Test
     fun `updateInterval gracefully handles a plant with no pending event`() = runTest {
-        val plant = plant(pendingEventId = null)
-        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns "new_evt"
+        val plant = plant(pendingEventId = null, pendingEventCalendarId = null)
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "cal_a")
         coEvery { mockDao.update(any()) } just Runs
 
         repository.updateInterval(plant, 5)
 
-        coVerify(exactly = 0) { mockCalendar.deleteEvent(any()) }
+        coVerify(exactly = 0) { mockCalendar.deleteEvent(any(), any()) }
         coVerify { mockCalendar.createWateringEvent("Basil", any()) }
     }
 
     // ── deletePlant ───────────────────────────────────────────────────────────
 
     @Test
-    fun `deletePlant removes the pending calendar event`() = runTest {
-        val plant = plant(pendingEventId = "orchid_evt")
-        coEvery { mockCalendar.deleteEvent(any()) } just Runs
+    fun `deletePlant removes the pending event from its original calendar`() = runTest {
+        val plant = plant(pendingEventId = "orchid_evt", pendingEventCalendarId = "shared_cal")
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
         coEvery { mockDao.delete(any()) } just Runs
 
         repository.deletePlant(plant)
 
-        coVerify { mockCalendar.deleteEvent("orchid_evt") }
+        coVerify { mockCalendar.deleteEvent("orchid_evt", "shared_cal") }
     }
 
     @Test
     fun `deletePlant removes the plant from the database`() = runTest {
-        val plant = plant(pendingEventId = "orchid_evt")
-        coEvery { mockCalendar.deleteEvent(any()) } just Runs
+        val plant = plant(pendingEventId = "orchid_evt", pendingEventCalendarId = "cal_a")
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
         coEvery { mockDao.delete(any()) } just Runs
 
         repository.deletePlant(plant)
@@ -223,12 +254,12 @@ class PlantRepositoryTest {
 
     @Test
     fun `deletePlant skips calendar delete when plant has no pending event`() = runTest {
-        val plant = plant(pendingEventId = null)
+        val plant = plant(pendingEventId = null, pendingEventCalendarId = null)
         coEvery { mockDao.delete(any()) } just Runs
 
         repository.deletePlant(plant)
 
-        coVerify(exactly = 0) { mockCalendar.deleteEvent(any()) }
+        coVerify(exactly = 0) { mockCalendar.deleteEvent(any(), any()) }
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -236,6 +267,7 @@ class PlantRepositoryTest {
     private fun plant(
         intervalDays: Int = 3,
         pendingEventId: String? = "evt",
+        pendingEventCalendarId: String? = "cal_a",
     ) = Plant(
         id = 1L,
         name = "Basil",
@@ -243,5 +275,6 @@ class PlantRepositoryTest {
         lastWateredMillis = null,
         nextWateringMillis = System.currentTimeMillis(),
         pendingEventId = pendingEventId,
+        pendingEventCalendarId = pendingEventCalendarId,
     )
 }

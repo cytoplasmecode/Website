@@ -6,21 +6,22 @@ import java.time.LocalDate
 
 class PlantRepository(
     private val dao: PlantDao,
-    private val calendarManager: CalendarManager
+    private val calendarManager: CalendarManager,
 ) {
     val plants: LiveData<List<Plant>> = dao.getAllPlants()
 
     suspend fun addPlant(name: String, intervalDays: Int) {
         val nextWatering = LocalDate.now().plusDays(intervalDays.toLong())
         val nextMillis = nextWatering.toEpochDay() * 86_400_000L
-        val eventId = calendarManager.createWateringEvent(name, nextWatering)
+        val result = calendarManager.createWateringEvent(name, nextWatering)
         dao.insert(
             Plant(
                 name = name,
                 intervalDays = intervalDays,
                 lastWateredMillis = null,
                 nextWateringMillis = nextMillis,
-                pendingEventId = eventId
+                pendingEventId = result?.first,
+                pendingEventCalendarId = result?.second,
             )
         )
     }
@@ -30,14 +31,18 @@ class PlantRepository(
         val nextWatering = LocalDate.now().plusDays(plant.intervalDays.toLong())
         val nextMillis = nextWatering.toEpochDay() * 86_400_000L
 
-        plant.pendingEventId?.let { calendarManager.markEventDone(it, plant.name, userName) }
-        val nextEventId = calendarManager.createWateringEvent(plant.name, nextWatering)
+        if (plant.pendingEventId != null) {
+            val calId = plant.pendingEventCalendarId ?: "primary"
+            calendarManager.markEventDone(plant.pendingEventId, calId, plant.name, userName)
+        }
+        val result = calendarManager.createWateringEvent(plant.name, nextWatering)
 
         dao.update(
             plant.copy(
                 lastWateredMillis = nowMillis,
                 nextWateringMillis = nextMillis,
-                pendingEventId = nextEventId
+                pendingEventId = result?.first,
+                pendingEventCalendarId = result?.second,
             )
         )
     }
@@ -45,23 +50,29 @@ class PlantRepository(
     // Deletes only the pending future event and reschedules from today.
     // Past "DONE by..." events on the calendar are left untouched.
     suspend fun updateInterval(plant: Plant, newIntervalDays: Int) {
-        plant.pendingEventId?.let { calendarManager.deleteEvent(it) }
-
+        if (plant.pendingEventId != null) {
+            val calId = plant.pendingEventCalendarId ?: "primary"
+            calendarManager.deleteEvent(plant.pendingEventId, calId)
+        }
         val nextWatering = LocalDate.now().plusDays(newIntervalDays.toLong())
         val nextMillis = nextWatering.toEpochDay() * 86_400_000L
-        val newEventId = calendarManager.createWateringEvent(plant.name, nextWatering)
+        val result = calendarManager.createWateringEvent(plant.name, nextWatering)
 
         dao.update(
             plant.copy(
                 intervalDays = newIntervalDays,
                 nextWateringMillis = nextMillis,
-                pendingEventId = newEventId
+                pendingEventId = result?.first,
+                pendingEventCalendarId = result?.second,
             )
         )
     }
 
     suspend fun deletePlant(plant: Plant) {
-        plant.pendingEventId?.let { calendarManager.deleteEvent(it) }
+        if (plant.pendingEventId != null) {
+            val calId = plant.pendingEventCalendarId ?: "primary"
+            calendarManager.deleteEvent(plant.pendingEventId, calId)
+        }
         dao.delete(plant)
     }
 

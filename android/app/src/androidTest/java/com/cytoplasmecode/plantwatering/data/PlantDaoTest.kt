@@ -198,12 +198,14 @@ class PlantDaoTest {
         intervalDays: Int,
         nextMillis: Long,
         eventId: String? = null,
+        calendarId: String? = null,
     ) = Plant(
         name = name,
         intervalDays = intervalDays,
         lastWateredMillis = null,
         nextWateringMillis = nextMillis,
         pendingEventId = eventId,
+        pendingEventCalendarId = calendarId,
     )
 
     private fun dayMillis(daysFromNow: Long) =
