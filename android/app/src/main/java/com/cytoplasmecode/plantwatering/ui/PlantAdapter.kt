@@ -1,7 +1,9 @@
 package com.cytoplasmecode.plantwatering.ui
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.graphics.drawable.DrawableCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -27,10 +29,15 @@ class PlantAdapter(
             val nextDate = Instant.ofEpochMilli(plant.nextWateringMillis)
                 .atZone(ZoneId.systemDefault()).toLocalDate()
             val daysUntil = ChronoUnit.DAYS.between(LocalDate.now(), nextDate)
-            binding.nextWateringText.text = when {
-                daysUntil < 0 -> "Overdue by ${-daysUntil} day(s) ⚠️"
-                daysUntil == 0L -> "Due today!"
-                else -> "Due in $daysUntil day(s)"
+            val (label, tintColor) = when {
+                daysUntil < 0 -> "⚠ Overdue ${-daysUntil}d" to Color.parseColor("#F87171")
+                daysUntil == 0L -> "● Due today" to Color.parseColor("#FB923C")
+                else -> "● In ${daysUntil}d" to Color.parseColor("#4ADE80")
+            }
+            binding.nextWateringText.text = label
+            binding.nextWateringText.setTextColor(tintColor)
+            binding.nextWateringText.background?.let {
+                DrawableCompat.setTint(DrawableCompat.wrap(it.mutate()), (tintColor and 0x00FFFFFF) or 0x22000000)
             }
 
             binding.waterButton.setOnClickListener { onWaterClick(plant) }
