@@ -13,13 +13,11 @@ import com.cytoplasmecode.plantwatering.data.PlantDatabase
 import com.cytoplasmecode.plantwatering.data.PlantRepository
 import kotlinx.coroutines.launch
 
-class PlantsViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val calendarManager = CalendarManager(application)
-    private val repository = PlantRepository(
-        PlantDatabase.getInstance(application).plantDao(),
-        calendarManager
-    )
+class PlantsViewModel(
+    application: Application,
+    private val calendarManager: CalendarManager,
+    private val repository: PlantRepository,
+) : AndroidViewModel(application) {
 
     val plants: LiveData<List<Plant>> = repository.plants
 
@@ -50,7 +48,13 @@ class PlantsViewModel(application: Application) : AndroidViewModel(application) 
 
     class Factory(private val app: Application) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            PlantsViewModel(app) as T
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            val cm = CalendarManager(app)
+            return PlantsViewModel(
+                app,
+                cm,
+                PlantRepository(PlantDatabase.getInstance(app).plantDao(), cm)
+            ) as T
+        }
     }
 }

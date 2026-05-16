@@ -41,7 +41,7 @@ class CalendarManager(private val context: Context) {
                 val service = buildService(acc)
                 val dateStr = date.toString()
                 val event = Event().apply {
-                    summary = "Water $plantName"
+                    summary = pendingEventTitle(plantName)
                     start = EventDateTime().apply { this.date = DateTime(dateStr) }
                     end = EventDateTime().apply { this.date = DateTime(dateStr) }
                 }
@@ -56,7 +56,7 @@ class CalendarManager(private val context: Context) {
             runCatching {
                 val service = buildService(acc)
                 val event = service.events().get("primary", eventId).execute()
-                event.summary = "DONE by $userName - $plantName"
+                event.summary = doneEventTitle(userName, plantName)
                 service.events().update("primary", eventId, event).execute()
             }
         }
