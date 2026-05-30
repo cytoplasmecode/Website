@@ -3,6 +3,7 @@ package com.cytoplasmecode.plantwatering.data
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.MutableLiveData
 import com.cytoplasmecode.plantwatering.calendar.CalendarManager
+import com.cytoplasmecode.plantwatering.calendar.HistoryEvent
 import com.cytoplasmecode.plantwatering.util.MainDispatcherRule
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -262,6 +263,146 @@ class PlantRepositoryTest {
         coVerify(exactly = 0) { mockCalendar.deleteEvent(any(), any()) }
     }
 
+    // ── getPlantHistory ───────────────────────────────────────────────────────
+
+    @Test
+    fun `getPlantHistory delegates to CalendarManager with the plant name`() = runTest {
+        val plant = plant()
+        coEvery { mockCalendar.fetchPlantHistory("Basil") } returns emptyList()
+
+        repository.getPlantHistory(plant)
+
+        coVerify { mockCalendar.fetchPlantHistory("Basil") }
+    }
+
+    // ── updateHistoryEventDate ────────────────────────────────────────────────
+
+    @Test
+    fun `updateHistoryEventDate reschedules the calendar event to the new date`() = runTest {
+        val plant = plant()
+        val event = historyEvent(date = LocalDate.now().minusDays(5))
+        val newDate = LocalDate.now().minusDays(3)
+        coEvery { mockCalendar.rescheduleEvent(any(), any(), any()) } just Runs
+
+        repository.updateHistoryEventDate(plant, event, newDate, isLastWatering = false)
+
+        coVerify { mockCalendar.rescheduleEvent(event.eventId, event.calendarId, newDate) }
+    }
+
+    @Test
+    fun `updateHistoryEventDate when not last watering only patches calendar event`() = runTest {
+        val plant = plant()
+        val event = historyEvent(date = LocalDate.now().minusDays(5))
+        coEvery { mockCalendar.rescheduleEvent(any(), any(), any()) } just Runs
+
+        repository.updateHistoryEventDate(plant, event, LocalDate.now().minusDays(3), isLastWatering = false)
+
+        coVerify(exactly = 0) { mockCalendar.deleteEvent(any(), any()) }
+        coVerify(exactly = 0) { mockCalendar.createWateringEvent(any(), any()) }
+        coVerify(exactly = 0) { mockDao.update(any()) }
+    }
+
+    @Test
+    fun `updateHistoryEventDate when last watering rebuilds pending event`() = runTest {
+        val plant = plant(pendingEventId = "old_evt", pendingEventCalendarId = "cal_a")
+        val event = historyEvent()
+        val newDate = LocalDate.now().minusDays(1)
+        coEvery { mockCalendar.rescheduleEvent(any(), any(), any()) } just Runs
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "cal_a")
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.updateHistoryEventDate(plant, event, newDate, isLastWatering = true)
+
+        coVerify { mockCalendar.deleteEvent("old_evt", "cal_a") }
+        coVerify { mockCalendar.createWateringEvent("Basil", newDate.plusDays(3)) }
+        coVerify { mockDao.update(match { it.lastWateredMillis == newDate.toEpochDay() * 86_400_000L }) }
+    }
+
+    // ── updateNextWateringDate ────────────────────────────────────────────────
+
+    @Test
+    fun `updateNextWateringDate reschedules the pending event in-place`() = runTest {
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = "cal_a")
+        val newDate = LocalDate.now().plusDays(5)
+        coEvery { mockCalendar.rescheduleEvent(any(), any(), any()) } just Runs
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.updateNextWateringDate(plant, newDate)
+
+        coVerify { mockCalendar.rescheduleEvent("evt", "cal_a", newDate) }
+        coVerify(exactly = 0) { mockCalendar.deleteEvent(any(), any()) }
+    }
+
+    @Test
+    fun `updateNextWateringDate persists the new nextWateringMillis`() = runTest {
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = "cal_a")
+        val newDate = LocalDate.now().plusDays(5)
+        coEvery { mockCalendar.rescheduleEvent(any(), any(), any()) } just Runs
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.updateNextWateringDate(plant, newDate)
+
+        val expectedMillis = newDate.toEpochDay() * 86_400_000L
+        coVerify { mockDao.update(match { it.nextWateringMillis == expectedMillis }) }
+    }
+
+    @Test
+    fun `updateNextWateringDate skips reschedule when there is no pending event`() = runTest {
+        val plant = plant(pendingEventId = null, pendingEventCalendarId = null)
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.updateNextWateringDate(plant, LocalDate.now().plusDays(3))
+
+        coVerify(exactly = 0) { mockCalendar.rescheduleEvent(any(), any(), any()) }
+    }
+
+    // ── correctLastWatering ───────────────────────────────────────────────────
+
+    @Test
+    fun `correctLastWatering reschedules the most recent done event when history exists`() = runTest {
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = "cal_a")
+        val lastEvent = historyEvent(eventId = "done_evt", calendarId = "cal_h")
+        val newDate = LocalDate.now().minusDays(2)
+        coEvery { mockCalendar.fetchPlantHistory("Basil") } returns listOf(lastEvent)
+        coEvery { mockCalendar.rescheduleEvent(any(), any(), any()) } just Runs
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "cal_a")
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.correctLastWatering(plant, newDate)
+
+        coVerify { mockCalendar.rescheduleEvent("done_evt", "cal_h", newDate) }
+    }
+
+    @Test
+    fun `correctLastWatering rebuilds pending event from the corrected date`() = runTest {
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = "cal_a")
+        val newDate = LocalDate.now().minusDays(2)
+        coEvery { mockCalendar.fetchPlantHistory(any()) } returns emptyList()
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "cal_a")
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.correctLastWatering(plant, newDate)
+
+        coVerify { mockCalendar.createWateringEvent("Basil", newDate.plusDays(3)) }
+        coVerify { mockDao.update(match { it.lastWateredMillis == newDate.toEpochDay() * 86_400_000L }) }
+    }
+
+    @Test
+    fun `correctLastWatering skips reschedule when history is empty`() = runTest {
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = "cal_a")
+        coEvery { mockCalendar.fetchPlantHistory(any()) } returns emptyList()
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "cal_a")
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.correctLastWatering(plant, LocalDate.now().minusDays(1))
+
+        coVerify(exactly = 0) { mockCalendar.rescheduleEvent(any(), any(), any()) }
+    }
+
     // ── logPastWatering ───────────────────────────────────────────────────────
 
     @Test
@@ -355,6 +496,18 @@ class PlantRepositoryTest {
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
+
+    private fun historyEvent(
+        eventId: String = "hist_evt",
+        calendarId: String = "cal_a",
+        date: LocalDate = LocalDate.now().minusDays(3),
+    ) = HistoryEvent(
+        eventId = eventId,
+        calendarId = calendarId,
+        date = date,
+        userName = "Alice",
+        plantName = "Basil",
+    )
 
     private fun plant(
         intervalDays: Int = 3,

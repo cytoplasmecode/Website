@@ -1,6 +1,7 @@
 package com.cytoplasmecode.plantwatering
 
 import android.Manifest
+import android.app.DatePickerDialog
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.pm.PackageManager
@@ -18,6 +19,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import com.cytoplasmecode.plantwatering.auth.GoogleAuthManager
 import com.cytoplasmecode.plantwatering.calendar.CalendarInfo
 import com.cytoplasmecode.plantwatering.calendar.CalendarPreferences
@@ -28,6 +32,7 @@ import com.cytoplasmecode.plantwatering.ui.CalendarPickerDialog
 import com.cytoplasmecode.plantwatering.ui.EditIntervalDialog
 import com.cytoplasmecode.plantwatering.ui.LogPastWateringDialog
 import com.cytoplasmecode.plantwatering.ui.PlantAdapter
+import com.cytoplasmecode.plantwatering.ui.PlantHistoryDialog
 import com.cytoplasmecode.plantwatering.ui.PlantsViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import java.util.concurrent.TimeUnit
@@ -73,21 +78,51 @@ class MainActivity : AppCompatActivity() {
                 viewModel.waterPlant(plant)
                 Toast.makeText(this, "${plant.name} watered!", Toast.LENGTH_SHORT).show()
             },
+            onWaterLongClick = { plant ->
+                // Long press: log a watering that happened in the past
+                LogPastWateringDialog(this, plant.name) { date ->
+                    viewModel.logPastWatering(plant, date)
+                    Toast.makeText(this, getString(R.string.log_past_watering_done, plant.name), Toast.LENGTH_SHORT).show()
+                }.show()
+            },
+            onHistoryClick = { plant ->
+                Toast.makeText(this, getString(R.string.loading_history), Toast.LENGTH_SHORT).show()
+                viewModel.loadPlantHistory(plant) { events ->
+                    PlantHistoryDialog(this, plant, events) { event, newDate, isLastWatering ->
+                        viewModel.updateHistoryEventDate(plant, event, newDate, isLastWatering)
+                    }.show()
+                }
+            },
             onEditClick = { plant ->
                 EditIntervalDialog(this, plant) { newInterval ->
                     viewModel.updatePlantInterval(plant, newInterval)
                 }.show()
             },
             onDeleteClick = { plant -> viewModel.deletePlant(plant) },
-            onLogPastClick = { plant ->
-                LogPastWateringDialog(this, plant.name) { date ->
-                    viewModel.logPastWatering(plant, date)
-                    Toast.makeText(
-                        this,
-                        getString(R.string.log_past_watering_done, plant.name),
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                }.show()
+            onNextWateringLongClick = { plant ->
+                val current = Instant.ofEpochMilli(plant.nextWateringMillis)
+                    .atZone(ZoneId.systemDefault()).toLocalDate()
+                DatePickerDialog(
+                    this,
+                    { _, year, month, day ->
+                        viewModel.updateNextWateringDate(plant, LocalDate.of(year, month + 1, day))
+                    },
+                    current.year, current.monthValue - 1, current.dayOfMonth,
+                ).show()
+            },
+            onLastWateredLongClick = { plant ->
+                val current = plant.lastWateredMillis
+                    ?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() }
+                    ?: LocalDate.now()
+                val picker = DatePickerDialog(
+                    this,
+                    { _, year, month, day ->
+                        viewModel.correctLastWatering(plant, LocalDate.of(year, month + 1, day))
+                    },
+                    current.year, current.monthValue - 1, current.dayOfMonth,
+                )
+                picker.datePicker.maxDate = System.currentTimeMillis()
+                picker.show()
             },
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)

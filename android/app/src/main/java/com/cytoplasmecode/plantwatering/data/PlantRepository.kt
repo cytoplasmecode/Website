@@ -76,6 +76,74 @@ class PlantRepository(
         dao.delete(plant)
     }
 
+    /** Returns this plant's watering history, sorted most-recent-first. */
+    suspend fun getPlantHistory(plant: Plant): List<com.cytoplasmecode.plantwatering.calendar.HistoryEvent> =
+        calendarManager.fetchPlantHistory(plant.name)
+
+    /**
+     * Reschedules a specific past history event to [newDate].
+     * If [isLastWatering] the pending future event is also rebuilt from [newDate] + interval.
+     */
+    suspend fun updateHistoryEventDate(
+        plant: Plant,
+        event: com.cytoplasmecode.plantwatering.calendar.HistoryEvent,
+        newDate: LocalDate,
+        isLastWatering: Boolean,
+    ) {
+        calendarManager.rescheduleEvent(event.eventId, event.calendarId, newDate)
+        if (isLastWatering) {
+            if (plant.pendingEventId != null) {
+                calendarManager.deleteEvent(plant.pendingEventId, plant.pendingEventCalendarId ?: "primary")
+            }
+            val nextWatering = newDate.plusDays(plant.intervalDays.toLong())
+            val result = calendarManager.createWateringEvent(plant.name, nextWatering)
+            dao.update(plant.copy(
+                lastWateredMillis = newDate.toEpochDay() * 86_400_000L,
+                nextWateringMillis = nextWatering.toEpochDay() * 86_400_000L,
+                pendingEventId = result?.first,
+                pendingEventCalendarId = result?.second,
+            ))
+        }
+    }
+
+    /**
+     * Patches the pending event's date in-place and updates [Plant.nextWateringMillis].
+     * Does not change [Plant.lastWateredMillis].
+     */
+    suspend fun updateNextWateringDate(plant: Plant, newDate: LocalDate) {
+        if (plant.pendingEventId != null) {
+            calendarManager.rescheduleEvent(
+                plant.pendingEventId,
+                plant.pendingEventCalendarId ?: "primary",
+                newDate,
+            )
+        }
+        dao.update(plant.copy(nextWateringMillis = newDate.toEpochDay() * 86_400_000L))
+    }
+
+    /**
+     * Corrects the date of the last watering (editing it rather than adding a new one):
+     * - Finds and reschedules the most recent DONE calendar event for this plant.
+     * - Rebuilds the pending future event from [newDate] + interval.
+     */
+    suspend fun correctLastWatering(plant: Plant, newDate: LocalDate) {
+        val history = calendarManager.fetchPlantHistory(plant.name)
+        if (history.isNotEmpty()) {
+            calendarManager.rescheduleEvent(history.first().eventId, history.first().calendarId, newDate)
+        }
+        if (plant.pendingEventId != null) {
+            calendarManager.deleteEvent(plant.pendingEventId, plant.pendingEventCalendarId ?: "primary")
+        }
+        val nextWatering = newDate.plusDays(plant.intervalDays.toLong())
+        val result = calendarManager.createWateringEvent(plant.name, nextWatering)
+        dao.update(plant.copy(
+            lastWateredMillis = newDate.toEpochDay() * 86_400_000L,
+            nextWateringMillis = nextWatering.toEpochDay() * 86_400_000L,
+            pendingEventId = result?.first,
+            pendingEventCalendarId = result?.second,
+        ))
+    }
+
     /**
      * Records a watering that happened on a past [date]:
      * - Always creates a "DONE by $userName - $plantName" calendar event on that date.

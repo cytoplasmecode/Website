@@ -2,6 +2,7 @@ package com.cytoplasmecode.plantwatering.ui
 
 import android.graphics.Color
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.recyclerview.widget.DiffUtil
@@ -16,9 +17,12 @@ import java.time.temporal.ChronoUnit
 
 class PlantAdapter(
     private val onWaterClick: (Plant) -> Unit,
+    private val onWaterLongClick: (Plant) -> Unit,
+    private val onHistoryClick: (Plant) -> Unit,
     private val onEditClick: (Plant) -> Unit,
     private val onDeleteClick: (Plant) -> Unit,
-    private val onLogPastClick: (Plant) -> Unit,
+    private val onNextWateringLongClick: (Plant) -> Unit,
+    private val onLastWateredLongClick: (Plant) -> Unit,
 ) : ListAdapter<Plant, PlantAdapter.ViewHolder>(DIFF) {
 
     inner class ViewHolder(private val binding: ItemPlantBinding) :
@@ -45,11 +49,37 @@ class PlantAdapter(
                     (tintColor and 0x00FFFFFF) or 0x22000000
                 )
             }
+            binding.nextWateringText.setOnLongClickListener {
+                onNextWateringLongClick(plant)
+                true
+            }
+
+            if (plant.lastWateredMillis != null) {
+                val lastDate = Instant.ofEpochMilli(plant.lastWateredMillis)
+                    .atZone(ZoneId.systemDefault()).toLocalDate()
+                val daysAgo = ChronoUnit.DAYS.between(lastDate, LocalDate.now())
+                binding.lastWateredText.text = when (daysAgo) {
+                    0L -> "Last: today"
+                    1L -> "Last: yesterday"
+                    else -> "Last: ${daysAgo}d ago"
+                }
+                binding.lastWateredText.visibility = View.VISIBLE
+                binding.lastWateredText.setOnLongClickListener {
+                    onLastWateredLongClick(plant)
+                    true
+                }
+            } else {
+                binding.lastWateredText.visibility = View.GONE
+            }
 
             binding.waterButton.setOnClickListener { onWaterClick(plant) }
+            binding.waterButton.setOnLongClickListener {
+                onWaterLongClick(plant)
+                true
+            }
+            binding.historyButton.setOnClickListener { onHistoryClick(plant) }
             binding.editButton.setOnClickListener { onEditClick(plant) }
             binding.deleteButton.setOnClickListener { onDeleteClick(plant) }
-            binding.logPastButton.setOnClickListener { onLogPastClick(plant) }
         }
     }
 

@@ -110,6 +110,72 @@ class CalendarManager(private val context: Context) {
     }
 
     /**
+     * Searches all writable calendars for past "DONE by * - [plantName]" events.
+     * Returns results sorted most-recent-first.
+     */
+    suspend fun fetchPlantHistory(plantName: String): List<HistoryEvent> {
+        val acc = account ?: return emptyList()
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val service = buildService(acc)
+                val calendarIds = service.calendarList().list()
+                    .setMinAccessRole("writer")
+                    .execute()
+                    .items
+                    .orEmpty()
+                    .map { it.id }
+
+                val donePrefix = "DONE by "
+                val plantSuffix = " - $plantName"
+
+                calendarIds.flatMap { calId ->
+                    runCatching {
+                        service.events().list(calId)
+                            .setQ(plantSuffix)
+                            .setSingleEvents(true)
+                            .setOrderBy("startTime")
+                            .execute()
+                            .items
+                            .orEmpty()
+                            .filter { event ->
+                                val title = event.summary ?: ""
+                                title.startsWith(donePrefix) && title.endsWith(plantSuffix)
+                            }
+                            .mapNotNull { event ->
+                                val dateStr = event.start?.date?.toString() ?: return@mapNotNull null
+                                val date = LocalDate.parse(dateStr)
+                                val title = event.summary ?: ""
+                                val userName = title.removePrefix(donePrefix).removeSuffix(plantSuffix)
+                                HistoryEvent(
+                                    eventId = event.id,
+                                    calendarId = calId,
+                                    date = date,
+                                    userName = userName,
+                                    plantName = plantName,
+                                )
+                            }
+                    }.getOrDefault(emptyList())
+                }.sortedByDescending { it.date }
+            }.getOrDefault(emptyList())
+        }
+    }
+
+    /** Moves an existing event to a new date without changing its title or calendar. */
+    suspend fun rescheduleEvent(eventId: String, calendarId: String, newDate: LocalDate) {
+        val acc = account ?: return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val service = buildService(acc)
+                val event = service.events().get(calendarId, eventId).execute()
+                val dateStr = newDate.toString()
+                event.start = EventDateTime().apply { date = DateTime(dateStr) }
+                event.end = EventDateTime().apply { date = DateTime(dateStr) }
+                service.events().update(calendarId, eventId, event).execute()
+            }
+        }
+    }
+
+    /**
      * Creates a "DONE by $userName - $plantName" all-day event on a past [date].
      * Used when a user retroactively logs a watering they forgot to record.
      */

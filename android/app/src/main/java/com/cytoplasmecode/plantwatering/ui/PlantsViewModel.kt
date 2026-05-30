@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.cytoplasmecode.plantwatering.calendar.CalendarInfo
 import com.cytoplasmecode.plantwatering.calendar.CalendarManager
 import com.cytoplasmecode.plantwatering.data.Plant
+import com.cytoplasmecode.plantwatering.calendar.HistoryEvent
 import com.cytoplasmecode.plantwatering.data.PlantDatabase
 import com.cytoplasmecode.plantwatering.data.PlantRepository
 import kotlinx.coroutines.launch
@@ -65,6 +66,22 @@ class PlantsViewModel(
 
     fun logPastWatering(plant: Plant, date: LocalDate) {
         viewModelScope.launch { repository.logPastWatering(plant, date, userName) }
+    }
+
+    fun loadPlantHistory(plant: Plant, onResult: (List<HistoryEvent>) -> Unit) {
+        viewModelScope.launch { onResult(repository.getPlantHistory(plant)) }
+    }
+
+    fun updateHistoryEventDate(plant: Plant, event: HistoryEvent, newDate: LocalDate, isLastWatering: Boolean) {
+        viewModelScope.launch { repository.updateHistoryEventDate(plant, event, newDate, isLastWatering) }
+    }
+
+    fun updateNextWateringDate(plant: Plant, newDate: LocalDate) {
+        viewModelScope.launch { repository.updateNextWateringDate(plant, newDate) }
+    }
+
+    fun correctLastWatering(plant: Plant, newDate: LocalDate) {
+        viewModelScope.launch { repository.correctLastWatering(plant, newDate) }
     }
 
     class Factory(private val app: Application) : ViewModelProvider.Factory {
