@@ -67,6 +67,16 @@
             </LinearLayout>
 
             <ImageButton
+                android:id="@+id/logPastButton"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_delete_btn"
+                android:contentDescription="@string/log_past_watering"
+                android:src="@android:drawable/ic_menu_recent_history"
+                android:padding="6dp" />
+
+            <ImageButton
                 android:id="@+id/editButton"
                 android:layout_width="30dp"
                 android:layout_height="30dp"

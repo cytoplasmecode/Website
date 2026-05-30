@@ -262,6 +262,98 @@ class PlantRepositoryTest {
         coVerify(exactly = 0) { mockCalendar.deleteEvent(any(), any()) }
     }
 
+    // ── logPastWatering ───────────────────────────────────────────────────────
+
+    @Test
+    fun `logPastWatering always creates a done calendar event on the given date`() = runTest {
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = "cal_a")
+        val pastDate = LocalDate.now().minusDays(2)
+        coEvery { mockCalendar.createDoneEvent(any(), any(), any()) } just Runs
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "cal_a")
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.logPastWatering(plant, pastDate, "Alice")
+
+        coVerify { mockCalendar.createDoneEvent("Basil", "Alice", pastDate) }
+    }
+
+    @Test
+    fun `logPastWatering reschedules when date is more recent than lastWatered`() = runTest {
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = "cal_a")
+        val pastDate = LocalDate.now().minusDays(1)
+        coEvery { mockCalendar.createDoneEvent(any(), any(), any()) } just Runs
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "cal_a")
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.logPastWatering(plant, pastDate, "Alice")
+
+        // Deletes old pending, creates new one from pastDate + interval
+        coVerify { mockCalendar.deleteEvent("evt", "cal_a") }
+        coVerify { mockCalendar.createWateringEvent("Basil", pastDate.plusDays(3)) }
+        coVerify { mockDao.update(match { it.lastWateredMillis == pastDate.toEpochDay() * 86_400_000L }) }
+    }
+
+    @Test
+    fun `logPastWatering reschedules when plant was never watered`() = runTest {
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = "cal_a")
+        val pastDate = LocalDate.now().minusDays(3)
+        coEvery { mockCalendar.createDoneEvent(any(), any(), any()) } just Runs
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "cal_a")
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.logPastWatering(plant, pastDate, "Bob")
+
+        coVerify { mockCalendar.createWateringEvent("Basil", pastDate.plusDays(3)) }
+    }
+
+    @Test
+    fun `logPastWatering does not reschedule when date is older than last watering`() = runTest {
+        val recentWateringMillis = LocalDate.now().minusDays(1).toEpochDay() * 86_400_000L
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = "cal_a")
+            .copy(lastWateredMillis = recentWateringMillis)
+        val olderDate = LocalDate.now().minusDays(5)
+        coEvery { mockCalendar.createDoneEvent(any(), any(), any()) } just Runs
+
+        repository.logPastWatering(plant, olderDate, "Alice")
+
+        // Done event is created but schedule is not touched
+        coVerify { mockCalendar.createDoneEvent("Basil", "Alice", olderDate) }
+        coVerify(exactly = 0) { mockCalendar.deleteEvent(any(), any()) }
+        coVerify(exactly = 0) { mockCalendar.createWateringEvent(any(), any()) }
+        coVerify(exactly = 0) { mockDao.update(any()) }
+    }
+
+    @Test
+    fun `logPastWatering falls back to primary when pendingEventCalendarId is null`() = runTest {
+        val plant = plant(pendingEventId = "evt", pendingEventCalendarId = null)
+        val pastDate = LocalDate.now().minusDays(2)
+        coEvery { mockCalendar.createDoneEvent(any(), any(), any()) } just Runs
+        coEvery { mockCalendar.deleteEvent(any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "primary")
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.logPastWatering(plant, pastDate, "Alice")
+
+        coVerify { mockCalendar.deleteEvent("evt", "primary") }
+    }
+
+    @Test
+    fun `logPastWatering skips delete when plant has no pending event`() = runTest {
+        val plant = plant(pendingEventId = null, pendingEventCalendarId = null)
+        val pastDate = LocalDate.now().minusDays(2)
+        coEvery { mockCalendar.createDoneEvent(any(), any(), any()) } just Runs
+        coEvery { mockCalendar.createWateringEvent(any(), any()) } returns Pair("new_evt", "primary")
+        coEvery { mockDao.update(any()) } just Runs
+
+        repository.logPastWatering(plant, pastDate, "Alice")
+
+        coVerify(exactly = 0) { mockCalendar.deleteEvent(any(), any()) }
+        coVerify { mockCalendar.createWateringEvent("Basil", pastDate.plusDays(3)) }
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private fun plant(

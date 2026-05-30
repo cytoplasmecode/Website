@@ -76,5 +76,35 @@ class PlantRepository(
         dao.delete(plant)
     }
 
+    /**
+     * Records a watering that happened on a past [date]:
+     * - Always creates a "DONE by $userName - $plantName" calendar event on that date.
+     * - If [date] is more recent than the last recorded watering (or never watered),
+     *   also deletes the current pending event and reschedules from [date] + interval.
+     */
+    suspend fun logPastWatering(plant: Plant, date: LocalDate, userName: String) {
+        calendarManager.createDoneEvent(plant.name, userName, date)
+
+        val dateMillis = date.toEpochDay() * 86_400_000L
+        val isMoreRecent = plant.lastWateredMillis == null || dateMillis > plant.lastWateredMillis
+        if (isMoreRecent) {
+            if (plant.pendingEventId != null) {
+                val calId = plant.pendingEventCalendarId ?: "primary"
+                calendarManager.deleteEvent(plant.pendingEventId, calId)
+            }
+            val nextWatering = date.plusDays(plant.intervalDays.toLong())
+            val nextMillis = nextWatering.toEpochDay() * 86_400_000L
+            val result = calendarManager.createWateringEvent(plant.name, nextWatering)
+            dao.update(
+                plant.copy(
+                    lastWateredMillis = dateMillis,
+                    nextWateringMillis = nextMillis,
+                    pendingEventId = result?.first,
+                    pendingEventCalendarId = result?.second,
+                )
+            )
+        }
+    }
+
     suspend fun getDuePlants(): List<Plant> = dao.getDuePlants(System.currentTimeMillis())
 }

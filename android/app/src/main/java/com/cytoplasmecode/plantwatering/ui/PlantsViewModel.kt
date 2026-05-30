@@ -14,6 +14,7 @@ import com.cytoplasmecode.plantwatering.data.Plant
 import com.cytoplasmecode.plantwatering.data.PlantDatabase
 import com.cytoplasmecode.plantwatering.data.PlantRepository
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 class PlantsViewModel(
     application: Application,
@@ -60,6 +61,10 @@ class PlantsViewModel(
 
     fun deletePlant(plant: Plant) {
         viewModelScope.launch { repository.deletePlant(plant) }
+    }
+
+    fun logPastWatering(plant: Plant, date: LocalDate) {
+        viewModelScope.launch { repository.logPastWatering(plant, date, userName) }
     }
 
     class Factory(private val app: Application) : ViewModelProvider.Factory {

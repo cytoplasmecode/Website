@@ -18,6 +18,7 @@ class PlantAdapter(
     private val onWaterClick: (Plant) -> Unit,
     private val onEditClick: (Plant) -> Unit,
     private val onDeleteClick: (Plant) -> Unit,
+    private val onLogPastClick: (Plant) -> Unit,
 ) : ListAdapter<Plant, PlantAdapter.ViewHolder>(DIFF) {
 
     inner class ViewHolder(private val binding: ItemPlantBinding) :
@@ -48,6 +49,7 @@ class PlantAdapter(
             binding.waterButton.setOnClickListener { onWaterClick(plant) }
             binding.editButton.setOnClickListener { onEditClick(plant) }
             binding.deleteButton.setOnClickListener { onDeleteClick(plant) }
+            binding.logPastButton.setOnClickListener { onLogPastClick(plant) }
         }
     }
 

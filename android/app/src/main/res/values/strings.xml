@@ -4,4 +4,7 @@
     <string name="water_now">Water Now 💧</string>
     <string name="change_calendar">Change calendar</string>
     <string name="sign_out">Sign Out</string>
+    <string name="log_past_watering">Log past watering</string>
+    <string name="log_past_watering_title">When did you water %s?</string>
+    <string name="log_past_watering_done">Past watering logged for %s</string>
 </resources>

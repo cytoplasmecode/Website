@@ -26,6 +26,7 @@ import com.cytoplasmecode.plantwatering.notifications.WateringReminderWorker
 import com.cytoplasmecode.plantwatering.ui.AddPlantDialog
 import com.cytoplasmecode.plantwatering.ui.CalendarPickerDialog
 import com.cytoplasmecode.plantwatering.ui.EditIntervalDialog
+import com.cytoplasmecode.plantwatering.ui.LogPastWateringDialog
 import com.cytoplasmecode.plantwatering.ui.PlantAdapter
 import com.cytoplasmecode.plantwatering.ui.PlantsViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -78,6 +79,16 @@ class MainActivity : AppCompatActivity() {
                 }.show()
             },
             onDeleteClick = { plant -> viewModel.deletePlant(plant) },
+            onLogPastClick = { plant ->
+                LogPastWateringDialog(this, plant.name) { date ->
+                    viewModel.logPastWatering(plant, date)
+                    Toast.makeText(
+                        this,
+                        getString(R.string.log_past_watering_done, plant.name),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }.show()
+            },
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter

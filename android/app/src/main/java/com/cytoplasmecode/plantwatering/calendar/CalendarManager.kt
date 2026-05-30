@@ -109,6 +109,26 @@ class CalendarManager(private val context: Context) {
         }
     }
 
+    /**
+     * Creates a "DONE by $userName - $plantName" all-day event on a past [date].
+     * Used when a user retroactively logs a watering they forgot to record.
+     */
+    suspend fun createDoneEvent(plantName: String, userName: String, date: LocalDate) {
+        val acc = account ?: return
+        val calId = selectedCalendarId
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val dateStr = date.toString()
+                val event = Event().apply {
+                    summary = doneEventTitle(userName, plantName)
+                    start = EventDateTime().apply { this.date = DateTime(dateStr) }
+                    end = EventDateTime().apply { this.date = DateTime(dateStr) }
+                }
+                buildService(acc).events().insert(calId, event).execute()
+            }
+        }
+    }
+
     suspend fun deleteEvent(eventId: String, calendarId: String) {
         val acc = account ?: return
         withContext(Dispatchers.IO) {
