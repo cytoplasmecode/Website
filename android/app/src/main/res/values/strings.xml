@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Plant Watering</string>
+    <string name="water_now">Water Now 💧</string>
+    <string name="change_calendar">Change calendar</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="watering_history">Watering history</string>
+    <string name="loading_history">Loading history…</string>
+    <string name="log_past_watering">Log past watering</string>
+    <string name="log_past_watering_title">When did you water %s?</string>
+    <string name="log_past_watering_done">Past watering logged for %s</string>
+</resources>

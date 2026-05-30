@@ -1,0 +1,5 @@
+-keep class com.google.api.** { *; }
+-keep class com.google.api.client.** { *; }
+-dontwarn com.google.api.client.**
+-dontwarn com.google.api.services.**
+-dontwarn com.google.common.**

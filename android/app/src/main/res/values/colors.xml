@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark background layers -->
+    <color name="bg_base">#0F1117</color>
+    <color name="bg_surface">#161B2E</color>
+    <color name="bg_elevated">#1E2340</color>
+
+    <!-- Green accent -->
+    <color name="green_400">#4ADE80</color>
+    <color name="green_500">#22C55E</color>
+    <color name="green_700">#16A34A</color>
+
+    <!-- Text -->
+    <color name="text_primary">#E2E8F0</color>
+    <color name="text_secondary">#64748B</color>
+
+    <!-- Status colours -->
+    <color name="status_overdue">#F87171</color>
+    <color name="status_today">#FB923C</color>
+    <color name="status_ok">#4ADE80</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>
